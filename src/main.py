@@ -1,9 +1,15 @@
+import time
+
 from fastapi import FastAPI, Depends
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.decorator import cache
 
 from src.auth.base_config import auth_backend, fastapi_users, current_user
 from src.auth.schemas import UserRead, UserCreate
 from src.auth.models import User
 from src.operations.router import router as router_operation
+from redis import asyncio as aioredis
 
 app = FastAPI()
 
@@ -31,3 +37,16 @@ def protected_route(user: User = Depends(current_user)):
 @app.get("/unprotected-route")
 def protected_route():
     return f"Hello, Anonim"
+
+
+@app.get('/long_operation')
+@cache(expire=30)
+def long_operation():
+    time.sleep(2)
+    return "Много данных..."
+
+
+@app.on_event("startup")
+async def startup():
+    redis = aioredis.from_url("redis://127.0.0.1:6379")
+    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
